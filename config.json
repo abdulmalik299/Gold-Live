@@ -15,9 +15,8 @@
     "max": 20000,
     "step": 1000
   },
-  "defaults": {
-    "usdToIqd": "",
-    "expectUsdToIqd": "",
-    "expectOunce": ""
+  "storageKeys": {
+    "prefs": "gm_prefs_v2",
+    "calcHistory": "gm_calc_history_v2"
   }
 }

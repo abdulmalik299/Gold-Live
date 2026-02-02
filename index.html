@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-sparkle="off">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -21,18 +21,7 @@
     <div class="topbar__left">
       <div class="brand">
         <div class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="32" height="32" role="img" aria-label="Gold Monster">
-            <defs>
-              <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#ffdd8a"/>
-                <stop offset="0.55" stop-color="#f7b955"/>
-                <stop offset="1" stop-color="#b57a25"/>
-              </linearGradient>
-            </defs>
-            <path fill="url(#g1)" d="M32 4l18 10v18L32 60 14 32V14L32 4z"/>
-            <path fill="rgba(0,0,0,.22)" d="M32 4v56L14 32V14L32 4z"/>
-            <path fill="rgba(255,255,255,.22)" d="M32 4l18 10v18L32 60V4z"/>
-          </svg>
+          <img src="./assets/icon.svg" alt="" width="28" height="28" />
         </div>
         <div class="brand__text">
           <div class="brand__title">Gold Monster</div>
@@ -47,7 +36,7 @@
           <span class="dot" id="connDot"></span>
           <span id="connText">Checking…</span>
         </div>
-        <div class="pill pill--muted" title="Last update time">
+        <div class="pill pill--muted" title="Last update time (only when price changes)">
           <span class="mini-label">Updated</span>
           <span id="updatedAt">—</span>
         </div>
@@ -60,12 +49,13 @@
   </header>
 
   <main class="shell">
+    <!-- LIVE + CHART -->
     <section class="hero-grid">
       <div class="card card--hero">
         <div class="card__head">
           <div class="hgroup">
             <h1 class="h1">Live Gold (XAU) — Ounce</h1>
-            <p class="muted">Real-time pull from API. Chart updates only when the price changes.</p>
+            <p class="muted">Updates every second. Chart updates only when the ounce price changes.</p>
           </div>
           <div class="hero-actions">
             <button class="btn btn--primary" id="refreshBtn" type="button">
@@ -86,8 +76,8 @@
               <span id="liveOunceValue">—</span>
               <span id="liveOunceCurrency" class="currency">$</span>
             </div>
-            <div class="metric__delta">
-              <span id="liveOunceDir" class="dir">—</span>
+            <div class="metric__delta" aria-label="Ounce change">
+              <span id="liveOunceDir" class="dir is-muted">—</span>
               <span id="liveOunceDeltaAbs" class="delta">—</span>
               <span class="sep">•</span>
               <span id="liveOunceDeltaPct" class="delta">—</span>
@@ -115,12 +105,13 @@
 
         <div class="hero-body">
           <div class="chart-wrap">
-            <canvas id="priceChart" height="130" aria-label="Gold price chart" role="img"></canvas>
+            <canvas id="priceChart" height="160" aria-label="Gold price chart" role="img"></canvas>
             <div class="chart-footer">
               <div class="chart-badges">
                 <span class="badge">Line</span>
-                <span class="badge badge--muted">Auto-zoom</span>
+                <span class="badge badge--muted">Zoom + Pan</span>
                 <span class="badge badge--muted">Hover details</span>
+                <span class="badge badge--muted">Auto color (up/down)</span>
               </div>
               <div class="chart-controls">
                 <button class="mini-btn" id="chartZoomIn" type="button" title="Zoom in">＋</button>
@@ -130,13 +121,14 @@
             </div>
           </div>
 
-          <div class="karat-grid" id="karatGrid">
-            <!-- cards created by JS -->
+          <div class="karat-grid" id="karatGrid" aria-label="Karat prices">
+            <!-- built by JS -->
           </div>
         </div>
       </div>
 
       <aside class="stack">
+        <!-- Margin slider -->
         <section class="card">
           <div class="card__head">
             <h2 class="h2">Margin Slider (IQD only)</h2>
@@ -163,28 +155,29 @@
             </div>
             <div class="mini">
               <div class="mini__label">Polling</div>
-              <div class="mini__value" id="pollingLabel">1s</div>
+              <div class="mini__value" id="pollingLabel">—</div>
             </div>
             <div class="mini">
               <div class="mini__label">Chart points</div>
               <div class="mini__value" id="chartPointsLabel">0</div>
             </div>
             <div class="mini">
-              <div class="mini__label">Status</div>
+              <div class="mini__label">Engine</div>
               <div class="mini__value" id="engineLabel">Live</div>
             </div>
           </div>
         </section>
 
+        <!-- Tax finder -->
         <section class="card">
           <div class="card__head">
             <h2 class="h2">Tax (Margin) Finder</h2>
-            <p class="muted">Write the daily local gold price per selected unit. We calculate the margin and push it to the main slider.</p>
+            <p class="muted">Enter the local daily price per selected unit. We compute margin and push it to the main slider.</p>
           </div>
 
           <div class="formgrid">
             <label class="field">
-              <span class="field__label">Local price</span>
+              <span class="field__label">Local price (IQD)</span>
               <input id="localPriceInput" class="input" inputmode="decimal" placeholder="Enter local price" />
             </label>
 
@@ -216,9 +209,10 @@
             <div class="resultline__label">Computed margin</div>
             <div class="resultline__value"><span id="taxAmountValue">—</span> <span class="tiny">IQD</span></div>
           </div>
-          <div class="hint">If margin is outside 0–20,000 it will clamp and round to nearest 1,000.</div>
+          <div class="hint">Requires USD→IQD filled (because this is IQD only). Clamps to 0–20,000 and rounds to nearest 1,000.</div>
         </section>
 
+        <!-- Calculator -->
         <section class="card">
           <div class="card__head">
             <h2 class="h2">Advanced Calculator</h2>
@@ -240,60 +234,54 @@
             <div class="calc__history is-hidden" id="calcHistory" aria-label="Calculator history"></div>
 
             <div class="calc__keys" aria-label="Calculator buttons">
-              <!-- Row 1 -->
               <button class="key key--alt" data-key="C">C</button>
               <button class="key key--alt" data-key="±">±</button>
               <button class="key key--alt" data-key="%">%</button>
               <button class="key key--op" data-key="÷">÷</button>
 
-              <!-- Row 2 -->
               <button class="key" data-key="7">7</button>
               <button class="key" data-key="8">8</button>
               <button class="key" data-key="9">9</button>
               <button class="key key--op" data-key="×">×</button>
 
-              <!-- Row 3 -->
               <button class="key" data-key="4">4</button>
               <button class="key" data-key="5">5</button>
               <button class="key" data-key="6">6</button>
               <button class="key key--op" data-key="−">−</button>
 
-              <!-- Row 4 -->
               <button class="key" data-key="1">1</button>
               <button class="key" data-key="2">2</button>
               <button class="key" data-key="3">3</button>
               <button class="key key--op" data-key="+">+</button>
 
-              <!-- Row 5 -->
               <button class="key key--wide" data-key="0">0</button>
               <button class="key" data-key=".">.</button>
               <button class="key key--eq" data-key="=">=</button>
             </div>
           </div>
         </section>
-
       </aside>
     </section>
 
+    <!-- EXPECTATION -->
     <section class="card card--wide">
       <div class="card__head">
-        <div class="hgroup">
-          <h2 class="h2">Expectation Calculator</h2>
-          <p class="muted">Forecast with your own ounce price + USD→IQD. Includes karat + unit selection and margin slider.</p>
+        <div>
+          <h2 class="h2">Expectation</h2>
+          <p class="muted">Manually type an expected ounce price and see the result instantly.</p>
         </div>
-        <div class="pill pill--muted"><span class="mini-label">Mode</span><span>Manual</span></div>
       </div>
 
       <div class="expect-grid">
         <div class="expect-controls">
           <label class="field">
             <span class="field__label">Expected ounce price</span>
-            <input id="expectOunceInput" class="input" inputmode="decimal" placeholder="Enter ounce price (USD)" />
+            <input id="expectOunceInput" class="input" inputmode="decimal" placeholder="e.g. 2050.25" />
           </label>
 
           <label class="field">
             <span class="field__label">USD → IQD</span>
-            <input id="expectUsdToIqdInput" class="input" inputmode="decimal" placeholder="e.g. 1500" />
+            <input id="expectUsdToIqdInput" class="input" inputmode="decimal" placeholder="e.g. 1500 (optional)" />
           </label>
 
           <div class="field">
@@ -320,6 +308,7 @@
               <input id="expectMarginSlider" type="range" min="0" max="20000" step="1000" value="0" />
               <div class="sliderpill"><span id="expectMarginValue">0</span><span class="tiny">IQD</span></div>
             </div>
+            <div class="hint">Margin applies only when USD→IQD is filled.</div>
           </div>
         </div>
 
@@ -358,7 +347,7 @@
           <div class="note">
             <div class="note__icon">★</div>
             <div class="note__text">
-              Tip: if you leave USD→IQD empty, the manual section will stay in dollars.
+              Tip: leave USD→IQD empty to keep the manual section in dollars.
               When USD→IQD is filled, it switches to IQD and applies margin.
             </div>
           </div>
