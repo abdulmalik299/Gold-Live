@@ -1,0 +1,23 @@
+{
+  "apiUrl": "https://api.gold-api.com/price/XAU",
+  "ounceToGram": 31.1035,
+  "mithqalGram": 5,
+  "karats": {
+    "24": 1.0,
+    "22": 0.916,
+    "21": 0.875,
+    "18": 0.75
+  },
+  "pollMs": 1000,
+  "chartMaxPoints": 900,
+  "margin": {
+    "min": 0,
+    "max": 20000,
+    "step": 1000
+  },
+  "defaults": {
+    "usdToIqd": "",
+    "expectUsdToIqd": "",
+    "expectOunce": ""
+  }
+}
