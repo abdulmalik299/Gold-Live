@@ -17,6 +17,12 @@
   },
   "storageKeys": {
     "prefs": "gm_prefs_v2",
-    "calcHistory": "gm_calc_history_v2"
+    "calcHistory": "gm_calc_history_v2",
+    "chartHistory": "gm_chart_history_v1"
+  },
+  "defaults": {
+    "usdToIqd": "",
+    "expectUsdToIqd": "",
+    "expectOunce": ""
   }
 }

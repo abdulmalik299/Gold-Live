@@ -46,7 +46,8 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
+html,.card,.metric,.kcard,.hero,.stack,.karat-grid{min-width:0;}
+body{height:100%}
 body{
   margin:0;
   font-family:var(--font-ui);
@@ -238,8 +239,12 @@ body{
   background: rgba(255,255,255,.02);
   padding: 12px 12px 10px;
   overflow:hidden;
-  min-height: 240px;
+  height: 360px;
+  min-height: 360px;
 }
+
+#priceChart{width:100% !important; height: 270px !important; display:block;}
+
 .chart-footer{display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-top: 10px;}
 .chart-badges{display:flex; gap:8px; flex-wrap:wrap}
 .badge{

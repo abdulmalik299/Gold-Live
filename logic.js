@@ -131,6 +131,9 @@ const state = {
 
   // derived cache for deltas (so each karat has its own delta)
   derivedPrev: new Map(),
+  lastDeltas: new Map(),
+  lastOunceDeltaAbs: null,
+  lastOunceDeltaPct: null,
 };
 
 /* =========================
@@ -258,6 +261,16 @@ function createChart(){
       tension: 0.22,
       borderWidth: 2,
       borderColor: "rgba(247,196,107,.85)",
+      fill: true,
+      backgroundColor: (ctx)=>{
+        const chart = ctx.chart;
+        const {ctx: c, chartArea} = chart;
+        if (!chartArea) return "rgba(247,196,107,.08)";
+        const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        g.addColorStop(0, "rgba(247,196,107,.18)");
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        return g;
+      },
       segment: {
         borderColor: (c)=>{
           const {p0, p1} = c;
@@ -280,6 +293,7 @@ function createChart(){
       interaction: {mode: "index", intersect: false},
       plugins: {
         legend: {display:false},
+        decimation: {enabled: true, algorithm: "lttb", samples: 250},
         tooltip: {
           callbacks: {
             label: (item)=> ` ${formatNumber(item.parsed.y, 2)} $`
@@ -306,6 +320,68 @@ function createChart(){
   $("#chartZoomIn")?.addEventListener("click", ()=> chart?.zoom(1.15));
   $("#chartZoomOut")?.addEventListener("click", ()=> chart?.zoom(0.87));
   $("#chartReset")?.addEventListener("click", ()=> chart?.resetZoom());
+
+/* =========================
+   CHART HISTORY (GitHub Pages friendly)
+   - We ship a seed file: history.json (static, in repo).
+   - We also persist locally (per device) via localStorage.
+   NOTE: A static site cannot write a shared JSON for all visitors without a backend.
+========================= */
+function chartHistoryKey(){
+  return (CFG && CFG.storageKeys && CFG.storageKeys.chartHistory) ? CFG.storageKeys.chartHistory : "gm_chart_history_v1";
+}
+
+async function loadSeedHistory(){
+  try{
+    const res = await fetch("./history.json", {cache:"no-store"});
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j || !Array.isArray(j.labels) || !Array.isArray(j.prices)) return null;
+    return j;
+  }catch(_){
+    return null;
+  }
+}
+
+function loadLocalHistory(){
+  try{
+    const raw = localStorage.getItem(chartHistoryKey());
+    if (!raw) return null;
+    const j = JSON.parse(raw);
+    if (!j || !Array.isArray(j.labels) || !Array.isArray(j.prices)) return null;
+    return j;
+  }catch(_){
+    return null;
+  }
+}
+
+function persistChartHistory(){
+  if (!chart) return;
+  const payload = {
+    labels: chart.data.labels.slice(- (CFG.chartMaxPoints || 900)),
+    prices: chart.data.datasets[0].data.slice(- (CFG.chartMaxPoints || 900)),
+    updatedAt: new Date().toISOString()
+  };
+  try{ localStorage.setItem(chartHistoryKey(), JSON.stringify(payload)); }catch(_){}
+}
+
+async function hydrateChartHistory(){
+  if (!chart) return;
+  const local = loadLocalHistory();
+  const seed = await loadSeedHistory();
+  const src = (local && local.prices && local.prices.length) ? local : seed;
+
+  if (src && src.prices && src.prices.length){
+    // Keep only the most recent max points
+    const max = CFG.chartMaxPoints || 900;
+    const labels = src.labels.slice(-max);
+    const prices = src.prices.slice(-max);
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = prices;
+    chart.update("none");
+    safeText($("#chartPointsLabel"), String(labels.length));
+  }
+}
 }
 
 function chartAddPoint(price){
@@ -321,6 +397,7 @@ function chartAddPoint(price){
   }
   chart.update("none");
   safeText($("#chartPointsLabel"), String(chart.data.labels.length));
+  persistChartHistory();
 }
 
 /* =========================
@@ -340,14 +417,19 @@ async function fetchLiveOunce(){
     state.lastFetchOk = true;
     setOnlineStatus(true);
 
-    state.prevLiveOunce = state.liveOunce;
-    state.prevLiveOunceNorm = state.liveOunceNorm;
+    const oldRaw = state.liveOunce;
+    const oldNorm = state.liveOunceNorm;
 
     state.liveOunce = p;
     state.liveOunceNorm = normalizePrice(p);
 
-    const changed = (state.prevLiveOunceNorm == null) || (state.liveOunceNorm !== state.prevLiveOunceNorm);
+    const changed = (oldNorm == null) || (state.liveOunceNorm !== oldNorm);
 
+    // Only advance "previous" when the price actually changes.
+    if (changed){
+      state.prevLiveOunce = oldRaw;
+      state.prevLiveOunceNorm = oldNorm;
+    }
     if (changed){
       safeText($("#updatedAt"), nowLocalString());
       chartAddPoint(state.liveOunceNorm);
@@ -368,13 +450,22 @@ async function fetchLiveOunce(){
 /* =========================
    RENDERERS
 ========================= */
-function renderOunce(){
+function renderOunce(changed=false){
   const val = state.liveOunceNorm;
   safeText($("#liveOunceValue"), val==null ? "—" : formatNumber(val, 2));
   safeText($("#liveOunceCurrency"), state.usdToIqd ? "IQD" : "$");
 
-  const abs = absChange(state.liveOunceNorm, state.prevLiveOunceNorm);
-  const pct = pctChange(state.liveOunceNorm, state.prevLiveOunceNorm);
+  let abs = absChange(state.liveOunceNorm, state.prevLiveOunceNorm);
+  let pct = pctChange(state.liveOunceNorm, state.prevLiveOunceNorm);
+
+  if (changed && Number.isFinite(abs) && abs !== 0){
+    state.lastOunceDeltaAbs = abs;
+    state.lastOunceDeltaPct = pct;
+  }
+  if (!changed && state.lastOunceDeltaAbs != null){
+    abs = state.lastOunceDeltaAbs;
+    pct = state.lastOunceDeltaPct;
+  }
   const dirInfo = signClass(abs);
 
   const dirEl = $("#liveOunceDir");
@@ -401,7 +492,7 @@ function renderOunce(){
   }
 }
 
-function renderKaratCards(){
+function renderKaratCards(changed=false, inputChanged=false){
   const ounce = state.liveOunceNorm;
   const usdToIqd = state.usdToIqd;
   const unit = state.liveUnit;
@@ -447,12 +538,30 @@ function renderKaratCards(){
     const prev = state.derivedPrev.get(key);
     const next = res.value;
 
+    // Keep last visible delta instead of resetting to 0 each poll.
     let abs = null, pct = null;
-    if (Number.isFinite(prev) && Number.isFinite(next)){
+    const last = state.lastDeltas.get(key);
+
+    const canCompute = Number.isFinite(prev) && Number.isFinite(next);
+    if ((changed || inputChanged) && canCompute){
       abs = next - prev;
-      pct = prev!==0 ? (abs/prev)*100 : null;
+      pct = prev !== 0 ? (abs / prev) * 100 : null;
+      if (Number.isFinite(abs) && abs !== 0){
+        state.lastDeltas.set(key, {abs, pct});
+      }else if (last){
+        abs = last.abs;
+        pct = last.pct;
+      }
+    }else if (last){
+      abs = last.abs;
+      pct = last.pct;
     }
-    state.derivedPrev.set(key, next);
+
+    // Advance the reference snapshot only when the ounce changed OR user changed inputs,
+    // so we don't "eat" the delta by re-storing the same value every second.
+    if ((changed || inputChanged) || !Number.isFinite(prev)){
+      if (Number.isFinite(next)) state.derivedPrev.set(key, next);
+    }
 
     const dirInfo = signClass(abs);
     safeText(dirEl, dirInfo.dir);
@@ -522,10 +631,10 @@ function renderExpectation(){
   safeText($("#expectPerMithqalValue"), `${formatNumber(perM.value, perM.currency==="IQD"?0:2)} ${perM.currency}`);
 }
 
-function renderAll(){
-  renderOunce();
+function renderAll(changed=false, inputChanged=false){
+  renderOunce(changed);
   renderLiveMeta();
-  renderKaratCards();
+  renderKaratCards(changed, inputChanged);
   renderExpectation();
 }
 
@@ -582,7 +691,7 @@ function computeTaxAndApply(){
   const slider = $("#marginSlider");
   slider.value = String(rounded);
   safeText($("#marginValue"), formatNumber(rounded,0));
-  renderAll();
+  renderAll(false, true);
 
   toast("Margin applied to main slider.", "ok");
 }
@@ -863,13 +972,13 @@ function bindUI(){
   attachNumericInput(usdEl, ()=>{
     const n = toNumberLoose(usdEl.value);
     state.usdToIqd = Number.isFinite(n) ? n : null;
-    renderAll();
+    renderAll(false, true);
     savePrefs();
   });
   $("#usdToIqdClear")?.addEventListener("click", ()=>{
     usdEl.value = "";
     state.usdToIqd = null;
-    renderAll();
+    renderAll(false, true);
     savePrefs();
   });
 
@@ -878,7 +987,7 @@ function bindUI(){
   ms.addEventListener("input", ()=>{
     state.marginIqd = toNumberLoose(ms.value) ?? 0;
     safeText($("#marginValue"), formatNumber(state.marginIqd,0));
-    renderAll();
+    renderAll(false, true);
     savePrefs();
   });
 
@@ -889,7 +998,7 @@ function bindUI(){
     $("#unitLiveGram")?.classList.toggle("is-on", u==="gram");
     $("#unitLiveMithqal")?.setAttribute("aria-selected", u==="mithqal");
     $("#unitLiveGram")?.setAttribute("aria-selected", u==="gram");
-    renderAll();
+    renderAll(false, true);
     savePrefs();
   };
   $("#unitLiveMithqal")?.addEventListener("click", ()=> setLiveUnit("mithqal"));
@@ -992,6 +1101,7 @@ async function main(){
 
   buildKaratCards();
   createChart();
+  await hydrateChartHistory();
   bindUI();
   restorePrefs();
   applyRestoredToState();
