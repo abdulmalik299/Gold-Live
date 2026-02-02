@@ -1,0 +1,16 @@
+{
+  "name": "Gold Live Monster",
+  "short_name": "Gold Live",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#07060d",
+  "theme_color": "#07060d",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

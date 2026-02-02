@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#07060d"/>
+  <title>Gold Live Monster</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="manifest" href="./manifest.webmanifest"/>
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="./style.css"/>
+
+  <!-- Chart.js + Zoom plugin -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
+</head>
+
+<body>
+  <div class="bg">
+    <div class="bg__aurora"></div>
+    <div class="bg__grain"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand__icon" src="./assets/icon.svg" alt="">
+      <div class="brand__text">
+        <div class="brand__name">GOLD MONSTER</div>
+        <div class="brand__sub">Live XAU • Premium Tools • IQD Ready • Worker Chart</div>
+      </div>
+    </div>
+
+    <div class="topbar__right">
+      <div class="pill pill--conn" id="connPill" title="Internet connection status">
+        <span class="dot" id="connDot"></span>
+        <span class="pill__text" id="connText">Checking…</span>
+      </div>
+
+      <div class="pill pill--muted" title="Data mode">
+        <span class="pill__label">Mode</span>
+        <span class="pill__text" id="modeText">—</span>
+      </div>
+
+      <div class="pill pill--muted" title="Last updated when price CHANGED">
+        <span class="pill__label">Updated</span>
+        <span class="pill__text" id="updatedText">—</span>
+      </div>
+
+      <button class="btn btn--ghost" id="glowBtn" type="button" aria-label="Toggle glow">✦ Glow</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 70/30 hierarchy: left = live + chart + karats (70). right = tools (30). -->
+    <section class="layout">
+      <!-- ================= LEFT / MAIN ================= -->
+      <section class="main card">
+        <div class="card__head">
+          <div class="head__left">
+            <h1 class="h1">Live Gold (XAU) — Ounce</h1>
+            <p class="muted" id="hintText">
+              Direct API tries 1s updates. If the browser blocks (CORS), the app auto-falls back to GitHub feed: <code>data/latest.json</code> + <code>data/history.json</code>.
+            </p>
+          </div>
+          <div class="head__right">
+            <button class="btn btn--gold" id="refreshBtn" type="button">⟳ Refresh</button>
+            <button class="btn btn--ghost" id="pauseBtn" type="button">
+              <span id="pauseIcon">Ⅱ</span> <span id="pauseLabel">Pause</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="hero">
+          <!-- KPI -->
+          <div class="kpi kpi--big">
+            <div class="kpi__label">Ounce price</div>
+            <div class="kpi__value">
+              <span id="ounceValue">—</span>
+              <span class="kpi__cur">$</span>
+            </div>
+
+            <!-- IMPORTANT: this delta is ONLY connected to live price changes, not sliders -->
+            <div class="kpi__delta" aria-label="Price movement from last change">
+              <span class="dir" id="ounceDir">—</span>
+              <span class="delta" id="ounceAbs">—</span>
+              <span class="sep">•</span>
+              <span class="delta" id="ouncePct">—</span>
+              <span class="sep">•</span>
+              <span class="tiny muted" id="noiseText">Noise rule: ≥ $0.10</span>
+            </div>
+
+            <div class="kpi__mini">
+              <span class="tag">Chart updates only when price changes</span>
+              <span class="tag tag--muted">Multi-timeframe: 1H / 24H / 7D</span>
+              <span class="tag tag--muted">Worker: smooth rendering</span>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="panel">
+            <div class="panel__grid">
+              <div class="box">
+                <div class="box__label">USD → IQD</div>
+                <div class="fieldline">
+                  <input class="input" id="usdToIqd" inputmode="decimal" placeholder="e.g. 1500">
+                  <button class="mini" id="usdClear" type="button" title="Clear">✕</button>
+                </div>
+                <div class="help">Empty = USD ($). Filled = IQD.</div>
+              </div>
+
+              <div class="box">
+                <div class="box__label">Unit</div>
+                <div class="seg" role="tablist" aria-label="Unit selector">
+                  <button class="seg__btn is-on" id="unitMithqal" type="button">Mithqal</button>
+                  <button class="seg__btn" id="unitGram" type="button">Gram</button>
+                </div>
+                <div class="help">1 mithqal = 5g • 1oz = 31.1035g</div>
+              </div>
+
+              <div class="box">
+                <div class="box__label">Margin (IQD only)</div>
+                <div class="slider">
+                  <input id="margin" type="range" min="0" max="20000" step="1000" value="0">
+                  <div class="slider__pill"><span id="marginVal">0</span> IQD</div>
+                </div>
+                <div class="help">Applied to each unit when converting to IQD.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chartCard">
+          <div class="chartCard__top">
+            <div class="tf" role="tablist" aria-label="Timeframe">
+              <button class="tf__btn is-on" data-tf="1h" type="button">1H</button>
+              <button class="tf__btn" data-tf="24h" type="button">24H</button>
+              <button class="tf__btn" data-tf="7d" type="button">7D</button>
+            </div>
+            <div class="chartBtns">
+              <button class="mini" id="zIn" type="button" title="Zoom in">＋</button>
+              <button class="mini" id="zOut" type="button" title="Zoom out">－</button>
+              <button class="mini" id="zReset" type="button" title="Reset zoom">⟲</button>
+            </div>
+          </div>
+
+          <div class="chartWrap">
+            <canvas id="chart"></canvas>
+          </div>
+
+          <div class="chartCard__foot">
+            <div class="tags">
+              <span class="tag">Segment color (green up / red down)</span>
+              <span class="tag tag--muted">Pan + Zoom</span>
+              <span class="tag tag--muted">Persisted history</span>
+            </div>
+            <div class="tiny muted">Points shown: <span id="pointsCount">0</span></div>
+          </div>
+        </div>
+
+        <!-- Karat cards -->
+        <div class="karatsHead">
+          <h2 class="h2">Karat Prices</h2>
+          <div class="tiny muted">Per selected unit (mithqal/gram). Currency switches with USD→IQD field.</div>
+        </div>
+        <div class="karats" id="karats"></div>
+      </section>
+
+      <!-- ================= RIGHT / TOOLS ================= -->
+      <aside class="tools">
+        <!-- Expectation -->
+        <section class="card">
+          <div class="card__head card__head--tight">
+            <div>
+              <h2 class="h2">Expectation</h2>
+              <p class="muted">Forecast prices using an expected ounce price and USD→IQD.</p>
+            </div>
+          </div>
+
+          <div class="form">
+            <label class="field">
+              <span class="field__label">Expected ounce price (USD)</span>
+              <input class="input" id="expOunce" inputmode="decimal" placeholder="e.g. 4800">
+            </label>
+
+            <label class="field">
+              <span class="field__label">USD → IQD</span>
+              <input class="input" id="expUsdToIqd" inputmode="decimal" placeholder="e.g. 1500">
+            </label>
+
+            <div class="two">
+              <label class="field">
+                <span class="field__label">Karat</span>
+                <select class="select" id="expKarat">
+                  <option value="21">21K</option>
+                  <option value="22">22K</option>
+                  <option value="18">18K</option>
+                  <option value="24">24K</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Unit</span>
+                <select class="select" id="expUnit">
+                  <option value="mithqal">Mithqal</option>
+                  <option value="gram">Gram</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field">
+              <span class="field__label">Margin (IQD)</span>
+              <div class="slider">
+                <input id="expMargin" type="range" min="0" max="20000" step="1000" value="0">
+                <div class="slider__pill"><span id="expMarginVal">0</span> IQD</div>
+              </div>
+            </div>
+
+            <div class="result">
+              <div class="result__label">Expected price</div>
+              <div class="result__value"><span id="expResult">—</span> <span class="tiny" id="expCur">IQD</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tax finder -->
+        <section class="card">
+          <div class="card__head card__head--tight">
+            <div>
+              <h2 class="h2">Tax (Margin) Finder</h2>
+              <p class="muted">
+                Enter your local daily price. We compute the margin and automatically set the main IQD slider.
+              </p>
+            </div>
+          </div>
+
+          <div class="form">
+            <label class="field">
+              <span class="field__label">Local price (IQD)</span>
+              <input class="input" id="localPrice" inputmode="decimal" placeholder="Enter local price">
+            </label>
+
+            <div class="two">
+              <label class="field">
+                <span class="field__label">Karat</span>
+                <select class="select" id="taxKarat">
+                  <option value="21">21K</option>
+                  <option value="22">22K</option>
+                  <option value="18">18K</option>
+                  <option value="24">24K</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Unit</span>
+                <select class="select" id="taxUnit">
+                  <option value="mithqal">Mithqal</option>
+                  <option value="gram">Gram</option>
+                </select>
+              </label>
+            </div>
+
+            <button class="btn btn--gold btn--full" id="applyTax" type="button">⇄ Calculate & Apply</button>
+
+            <div class="result">
+              <div class="result__label">Computed margin</div>
+              <div class="result__value"><span id="taxResult">—</span> <span class="tiny">IQD</span></div>
+            </div>
+
+            <div class="help">
+              Margin is IQD-only. Make sure USD→IQD is filled in the LIVE section.
+            </div>
+          </div>
+        </section>
+
+        <!-- Calculator -->
+        <section class="card">
+          <div class="card__head card__head--tight">
+            <div>
+              <h2 class="h2">Advanced Calculator</h2>
+              <p class="muted">Samsung-like layout + history. Division symbol is ÷.</p>
+            </div>
+          </div>
+
+          <div class="calc">
+            <div class="calc__top">
+              <div class="screen">
+                <div class="screen__expr" id="cExpr"> </div>
+                <div class="screen__out" id="cOut">0</div>
+              </div>
+              <div class="calc__tools">
+                <button class="mini" id="histToggle" type="button" title="Show/Hide history">☰</button>
+                <button class="mini" id="histClear" type="button" title="Clear history">🧹</button>
+              </div>
+            </div>
+
+            <div class="history is-hidden" id="history"></div>
+
+            <div class="keys" id="keys">
+              <button class="key alt" data-k="C">C</button>
+              <button class="key alt" data-k="±">±</button>
+              <button class="key alt" data-k="%">%</button>
+              <button class="key op" data-k="÷">÷</button>
+
+              <button class="key" data-k="7">7</button>
+              <button class="key" data-k="8">8</button>
+              <button class="key" data-k="9">9</button>
+              <button class="key op" data-k="×">×</button>
+
+              <button class="key" data-k="4">4</button>
+              <button class="key" data-k="5">5</button>
+              <button class="key" data-k="6">6</button>
+              <button class="key op" data-k="−">−</button>
+
+              <button class="key" data-k="1">1</button>
+              <button class="key" data-k="2">2</button>
+              <button class="key" data-k="3">3</button>
+              <button class="key op" data-k="+">+</button>
+
+              <button class="key wide" data-k="0">0</button>
+              <button class="key" data-k=".">.</button>
+              <button class="key eq" data-k="=">=</button>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <footer class="foot">
+      <div class="tiny muted">
+        Shared chart history is stored in <code>data/history.json</code> and updated by GitHub Actions.
+        Live feed stored in <code>data/latest.json</code>. DIRECT mode depends on browser CORS.
+      </div>
+    </footer>
+  </main>
+
+  <script type="module" src="./logic.js"></script>
+</body>
+</html>

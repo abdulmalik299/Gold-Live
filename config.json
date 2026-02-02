@@ -1,0 +1,28 @@
+{
+  "apiUrl": "https://api.gold-api.com/price/XAU",
+  "noiseThresholdUSD": 0.1,
+  "poll": {
+    "directMs": 1000,
+    "feedMs": 2500,
+    "directTimeoutMs": 3500
+  },
+  "constants": {
+    "ounceToGram": 31.1035,
+    "mithqalGram": 5
+  },
+  "karats": {
+    "24": 1.0,
+    "22": 0.916,
+    "21": 0.875,
+    "18": 0.75
+  },
+  "margin": {
+    "min": 0,
+    "max": 20000,
+    "step": 1000
+  },
+  "chart": {
+    "maxPoints": 9000,
+    "maxShown": 600
+  }
+}
